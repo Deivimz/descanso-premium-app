@@ -1,0 +1,62 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Red interna compartida entre los servicios
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  descanso-net:
+    driver: bridge
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumen persistente para MongoDB
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  mongo-data:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Servicios
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+
+  # ── Base de Datos ──────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: descanso-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secret1234}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-descanso_db}
+    ports:
+      - "27017:27017"          # expuesto para herramientas como Compass
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - descanso-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend FastAPI ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: descanso-backend
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-secret1234}@mongodb:27017/${MONGO_DB_NAME:-descanso_db}?authSource=admin
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-descanso_db}
+      SECRET_KEY: ${SECRET_KEY:-changeme_supersecret_key_in_production}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app   # hot-reload en desarrollo
+    networks:
+      - descanso-net
