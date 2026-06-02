@@ -18,6 +18,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db, close_db, get_client
 
+# ── Módulos ───────────────────────────────────────────────────────────────────
+# Modelos Beanie (se registran en init_db)
+from app.guests.model import Guest
+
+# Routers de cada módulo
+from app.guests.router import router as guests_router
+# Futuro:
+# from app.rooms.model    import Room
+# from app.rooms.router   import router as rooms_router
+# from app.bookings.model import Booking
+# from app.bookings.router import router as bookings_router
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -34,11 +46,12 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────
-    # Cuando los modelos Beanie estén creados, importarlos aquí y agregarlos
-    # a la lista, p.ej.:
-    #   from app.models.guest import Guest
-    #   document_models = [Guest, Room, Booking]
-    document_models = []   # <-- vacío hasta el Paso 2 (modelos)
+    # Agregar aquí los modelos Beanie de cada módulo conforme se implementen
+    document_models = [
+        Guest,
+        # Room,      ← Paso 3
+        # Booking,   ← Paso 3
+    ]
     await init_db(document_models)
     yield
     # ── Shutdown ───────────────────────────────────────────────────────────
@@ -54,6 +67,7 @@ app = FastAPI(
     version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    redirect_slashes=False,   # evita 307 en clientes que no siguen redirects
     lifespan=lifespan,
 )
 
@@ -67,6 +81,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Routers — cada módulo registra su propio router
+# ---------------------------------------------------------------------------
+app.include_router(guests_router)
+# Futuro:
+# app.include_router(rooms_router)
+# app.include_router(bookings_router)
+
 
 
 # ---------------------------------------------------------------------------

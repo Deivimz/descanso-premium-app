@@ -25,15 +25,27 @@ descanso-premium/
 │   ├── app/
 │   │   ├── core/
 │   │   │   ├── __init__.py
-│   │   │   ├── config.py        # Settings via pydantic-settings
-│   │   │   └── database.py      # Beanie ODM: init_db / close_db / get_client
-│   │   └── main.py              # FastAPI + lifespan Beanie + /ping + /db-test
+│   │   │   ├── config.py            # Settings via pydantic-settings
+│   │   │   └── database.py          # Beanie ODM: init_db / close_db / get_client
+│   │   ├── shared/
+│   │   │   ├── __init__.py
+│   │   │   └── base_repository.py   # BaseRepository[T] genérico
+│   │   ├── guests/                  # Módulo completo de Huéspedes
+│   │   │   ├── __init__.py
+│   │   │   ├── model.py             # Guest(Document) — Beanie
+│   │   │   ├── schemas.py           # GuestCreate, GuestUpdate, GuestResponse, GuestListResponse
+│   │   │   ├── repository.py        # GuestRepository(BaseRepository[Guest])
+│   │   │   ├── service.py           # GuestService — lógica de negocio
+│   │   │   └── router.py            # APIRouter prefijo: /api/guests
+│   │   ├── rooms/                   # [FUTURO] — mismo patrón
+│   │   ├── bookings/                # [FUTURO] — mismo patrón
+│   │   └── main.py                  # FastAPI + lifespan Beanie + routers
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── docker-compose.yml
-├── .env                         # Variables de entorno (NO subir a git)
+├── .env
 ├── .gitignore
-└── context.md                   # Este archivo
+└── context.md
 ```
 
 ---
@@ -159,6 +171,84 @@ docker compose logs backend --tail=15
 
 <!-- Los pasos siguientes se añadirán aquí conforme avancemos -->
 
+
+---
+
+## Paso 2b — Módulo de Huéspedes (Arquitectura por Módulos)
+
+**Fecha:** 2026-06-02
+
+### Qué se construyó
+
+| Artefacto | Descripción |
+|---|---|
+| `shared/base_repository.py` | `BaseRepository[T]` genérico: CRUD completo sobre cualquier Document Beanie |
+| `guests/model.py` | `Guest(Document)` con índices únicos en email y document_number |
+| `guests/schemas.py` | `GuestCreate`, `GuestUpdate`, `GuestResponse`, `GuestListResponse` |
+| `guests/repository.py` | `GuestRepository`: búsqueda por email, documento y texto libre (regex) |
+| `guests/service.py` | `GuestService`: validaciones de negocio, paginación, soft-delete |
+| `guests/router.py` | 6 endpoints REST bajo `/api/guests` |
+| `main.py` | Actualizado: registra `Guest` en Beanie e incluye `guests_router` |
+
+### Decisiones Técnicas Clave
+
+1. **Arquitectura por módulos (feature-based)**: cada entidad tiene su propia carpeta autocontenida (`guests/`). Agregar `rooms/` o `bookings/` solo requiere crear la misma estructura — `main.py` no necesita cambios estructurales, solo registrar el modelo y el router.
+
+2. **`shared/base_repository.py`**: único código compartido entre módulos. Contiene `BaseRepository[T]` genérico con `create`, `find_by_id`, `find_all`, `count`, `update`, `soft_delete`, `hard_delete`.
+
+3. **Soft-delete**: `DELETE /api/guests/{id}` establece `is_active=False`. El registro permanece en la BD para preservar el historial de reservas futuras. Parámetro `include_inactive=true` expone los inactivos.
+
+4. **Estrategia de relaciones futuras**: `Guest` no referencia a `Booking` ni `Room`. Será `Booking` quien tenga `guest_id: PydanticObjectId` (FK en el lado "muchos"). El endpoint `GET /api/guests/{id}/bookings` ya existe y retorna `[]` hasta que `BookingRepository` sea implementado.
+
+5. **`redirect_slashes=False`**: configurado en la app FastAPI para evitar `307 Temporary Redirect` que rompe clientes que no siguen redirects automáticamente (curl, fetch sin seguimiento, etc.).
+
+### Endpoints del módulo Guests
+
+| Método | Ruta | Descripción | HTTP OK |
+|---|---|---|---|
+| `POST` | `/api/guests` | Crear huésped | 201 |
+| `GET` | `/api/guests` | Listar con paginación y búsqueda | 200 |
+| `GET` | `/api/guests/{id}` | Obtener por ID | 200 |
+| `PATCH` | `/api/guests/{id}` | Actualización parcial | 200 |
+| `DELETE` | `/api/guests/{id}` | Soft-delete | 200 |
+| `GET` | `/api/guests/{id}/bookings` | Reservas del huésped *(stub)* | 200 |
+
+### Comandos para probar
+
+```bash
+# Crear huésped
+curl -X POST http://localhost:8000/api/guests \
+  -H "Content-Type: application/json" \
+  -d '{"first_name":"Maria","last_name":"Gonzalez","email":"maria@test.com","document_type":"DNI","document_number":"V-11111111"}'
+
+# Listar
+curl http://localhost:8000/api/guests
+
+# Buscar
+curl "http://localhost:8000/api/guests?search=Maria"
+
+# Actualizar parcialmente
+curl -X PATCH http://localhost:8000/api/guests/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"+58 424 111 2233","notes":"VIP Gold"}'
+
+# Soft-delete
+curl -X DELETE http://localhost:8000/api/guests/{id}
+
+# Ver inactivos
+curl "http://localhost:8000/api/guests?include_inactive=true"
+
+# Documentación interactiva
+# http://localhost:8000/docs
+```
+
+### Notas / Pendientes
+
+- `GET /api/guests/{id}/bookings` retorna `[]` hasta el Paso 3 (módulo Bookings).
+- Los índices únicos de MongoDB se crean automáticamente al arrancar Beanie.
+- El campo `document_number` se normaliza a mayúsculas en el validador de `GuestCreate`.
+
+---
 
 <!-- Los pasos siguientes se añadirán aquí conforme avancemos -->
 
