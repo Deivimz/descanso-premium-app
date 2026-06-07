@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # ── MongoDB ───────────────────────────────────────────────────────────────
+    mongo_url: str | None = None
     mongo_root_user: str = "admin"
     mongo_root_password: str = "secret1234"
     mongo_db_name: str = "descanso_db"
@@ -36,6 +37,8 @@ class Settings(BaseSettings):
     @property
     def mongo_uri(self) -> str:
         """Construye la cadena de conexión de MongoDB a partir de las variables."""
+        if self.mongo_url:
+            return self.mongo_url
         return (
             f"mongodb://{self.mongo_root_user}:{self.mongo_root_password}"
             f"@{self.mongo_host}:{self.mongo_port}/{self.mongo_db_name}"
