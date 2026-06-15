@@ -327,7 +327,7 @@ npm run dev
 | Artefacto | Descripción |
 |---|---|
 | `backend/app/shared/validators.py` | Implementación pura en Python del algoritmo Módulo 11 para validación de RUT Chileno. |
-| `backend/app/users/model.py` | Se añadieron los campos `first_name`, `last_name` y `rut` (índice único) al modelo User. |
+| `backend/app/users/model.py` | Se añadieron los campos `first_name`, `last_name`, `rut` (índice único), `created_at` y `updated_at` al modelo User. |
 | `frontend/.../utils/validators.ts` | Funciones `validateRut` y `formatRut` en TypeScript. |
 | `frontend/.../App.tsx` | Inclusión del `<ToastContainer />` para el sistema de notificaciones globales. |
 | `frontend/.../pages/Users.tsx` y `Guests.tsx` | Validación del RUT y reemplazo de alertas nativas por `toast.success` y `toast.error`. |
@@ -337,3 +337,103 @@ npm run dev
 1. **Unificación de Validadores:** Tanto Huéspedes como Usuarios comparten la misma validación estricta de RUT en el Frontend y en el Backend, evitando que datos sucios lleguen a la base de datos.
 2. **Formateo Dinámico UI:** Mientras el usuario teclea un RUT en los formularios de React, `formatRut` interviene para auto-agregar los puntos y el guión separador (`12.345.678-5`), lo que mejora ampliamente la UX (User Experience).
 3. **Notificaciones UI:** Se reemplazó el uso obsoleto de `alert()` o el simple texto estático en rojo, por `react-toastify`, cumpliendo con el estándar de "Vintage Moderno" e interfaces fluidas propuesto al inicio del proyecto.
+4. **Bug fix `updated_at`:** Se añadieron `created_at` y `updated_at` al modelo `User` para alinearlo con `BaseRepository`, que los actualiza automáticamente en cada `update()`/`soft_delete()`.
+
+---
+
+## Paso 8 — Módulos de Habitaciones y Reservas (Backend + Frontend)
+
+**Fecha:** 2026-06-14
+
+### Qué se construyó
+
+#### Backend
+
+| Artefacto | Descripción |
+|---|---|
+| `backend/app/rooms/model.py` | `Room(Document)` con enums `RoomType` (Simple/Doble/Suite/Presidencial) y `RoomState` (Disponible/Ocupada/Mantenimiento). Índices en `number` (único), `state` y `room_type`. |
+| `backend/app/rooms/schemas.py` | `RoomCreate`, `RoomUpdate`, `RoomStateUpdate`, `RoomResponse`, `RoomListResponse`. |
+| `backend/app/rooms/repository.py` | `RoomRepository`: `find_by_number`, `find_available`, `find_active`, `count_active`. |
+| `backend/app/rooms/service.py` | Validación de número único, bloqueo de desactivación si la habitación está Ocupada. |
+| `backend/app/rooms/router.py` | 5 endpoints bajo `/api/rooms`: GET lista, GET uno, POST, PATCH datos, PATCH estado, DELETE (soft). |
+| `backend/app/reservations/model.py` | `Reservation(Document)` con `guest_id` y `room_id` como `PydanticObjectId` (referencias), y `check_in`/`check_out`/`status`/`total_price` embebidos. |
+| `backend/app/reservations/schemas.py` | `ReservationCreate` con validador `check_out > check_in`, `ReservationUpdate`, `ReservationResponse`. |
+| `backend/app/reservations/repository.py` | Consultas de solapamiento de fechas para habitación y huésped usando la fórmula `$lt`/`$gt`. |
+| `backend/app/reservations/service.py` | Implementa las 3 reglas de negocio clave (ver abajo). |
+| `backend/app/reservations/router.py` | 7 endpoints bajo `/api/reservations`: lista, historial por huésped, GET uno, POST, PATCH, cancel, complete. |
+| `backend/app/main.py` | `Room` y `Reservation` registrados en Beanie; routers incluidos. |
+
+#### Frontend
+
+| Artefacto | Descripción |
+|---|---|
+| `frontend/.../api/rooms.ts` | Axios API: `getRooms`, `getRoom`, `createRoom`, `updateRoom`, `changeRoomState`, `deactivateRoom`. |
+| `frontend/.../api/reservations.ts` | Axios API: `getReservations`, `getGuestReservations`, `createReservation`, `cancelReservation`, `completeReservation`. |
+| `frontend/.../pages/Rooms.tsx` | Pantalla de Habitaciones con tarjetas de resumen por estado, tabla, modal de edición y modal de cambio de estado rápido. |
+| `frontend/.../pages/Reservations.tsx` | Pantalla de Reservas con tarjetas de resumen, tabla completa, formulario modal con preview de precio calculado en tiempo real y acciones de Completar/Cancelar. |
+| `frontend/.../App.tsx` | Rutas `/rooms` y `/bookings` actualizadas para usar los nuevos componentes reales. |
+
+### Reglas de Negocio Implementadas (service.py)
+
+| Regla | Descripción | Error HTTP |
+|---|---|---|
+| **Sin fechas pasadas** | `check_in` no puede ser anterior a la fecha de hoy | `422` |
+| **No double-booking de habitación** | Una habitación no puede tener dos reservas `CONFIRMADA` en fechas solapadas | `409` |
+| **Un huésped, una reserva activa** | Un huésped no puede tener dos reservas `CONFIRMADA` simultáneas | `409` |
+| **Habitación en mantenimiento** | No se puede reservar una habitación en estado `Mantenimiento` | `409` |
+| **No modificar completadas** | Una reserva `COMPLETADA` no puede ser modificada | `409` |
+
+### Algoritmo de solapamiento de fechas
+
+La condición utilizada para detectar conflictos entre dos rangos `[A_in, A_out)` y `[B_in, B_out)` es:
+```
+A_in < B_out  AND  A_out > B_in
+```
+Esto cubre todos los casos: contención, solapamiento izquierdo/derecho y equivalencia exacta.
+
+### Endpoints del módulo Rooms
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/rooms` | Crear habitación |
+| `GET` | `/api/rooms` | Listar (con filtro `only_available`) |
+| `GET` | `/api/rooms/{id}` | Obtener por ID |
+| `PATCH` | `/api/rooms/{id}` | Actualizar datos |
+| `PATCH` | `/api/rooms/{id}/state` | Cambiar estado |
+| `DELETE` | `/api/rooms/{id}` | Soft-delete |
+
+### Endpoints del módulo Reservations
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/reservations` | Crear reserva (aplica las 3 reglas) |
+| `GET` | `/api/reservations` | Listar todas |
+| `GET` | `/api/reservations/guest/{guest_id}` | Historial del huésped |
+| `GET` | `/api/reservations/{id}` | Obtener por ID |
+| `PATCH` | `/api/reservations/{id}` | Actualizar estado/notas |
+| `PATCH` | `/api/reservations/{id}/cancel` | Cancelar reserva |
+| `PATCH` | `/api/reservations/{id}/complete` | Completar (check-out) |
+
+### Estructura de Carpetas (estado actual)
+
+```
+descanso-premium/
+├── backend/
+│   └── app/
+│       ├── core/           # config, database, dependencies, security
+│       ├── shared/         # base_repository, validators
+│       ├── auth/           # router JWT: login, logout, me
+│       ├── users/          # CRUD de personal (admin/staff)
+│       ├── guests/         # CRUD de huéspedes
+│       ├── rooms/          # CRUD de habitaciones + gestión de estados ✅
+│       ├── reservations/   # CRUD de reservas + validaciones de negocio ✅
+│       └── main.py
+└── frontend/
+    └── front-descanso-premium/src/
+        ├── api/            # axios.ts, guests.ts, users.ts, rooms.ts ✅, reservations.ts ✅
+        ├── components/     # Modal, PrivateRoute
+        ├── layouts/        # DashboardLayout (sidebar con 4 módulos)
+        ├── pages/          # Login, Dashboard, Guests, Users, Rooms ✅, Reservations ✅
+        └── store/          # authStore (Zustand)
+```
+

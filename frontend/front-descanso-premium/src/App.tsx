@@ -4,9 +4,11 @@ import { useAuthStore } from './store/authStore';
 import { PrivateRoute } from './components/PrivateRoute';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/Login';
-import { Dashboard, Rooms, Bookings } from './pages/Views';
+import { Dashboard } from './pages/Views';
 import { Users } from './pages/Users';
 import { Guests } from './pages/Guests';
+import { RoomsPage } from './pages/Rooms';
+import { ReservationsPage } from './pages/Reservations';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -36,8 +38,8 @@ function App() {
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/guests" element={<Guests />} />
-            <Route path="/rooms" element={<Rooms />} />
-            <Route path="/bookings" element={<Bookings />} />
+            <Route path="/rooms" element={<RoomsPage />} />
+            <Route path="/bookings" element={<ReservationsPage />} />
             <Route path="/users" element={<Users />} />
           </Route>
         </Route>

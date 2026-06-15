@@ -73,7 +73,7 @@ async def create_guest(
 )
 async def list_guests(
     page: int = Query(1, ge=1, description="Página actual (base 1)"),
-    size: int = Query(20, ge=1, le=100, description="Registros por página"),
+    size: int = Query(20, ge=1, le=500, description="Registros por página"),
     search: Optional[str] = Query(None, description="Búsqueda libre en nombre, email, documento"),
     include_inactive: bool = Query(False, description="Incluir huéspedes inactivos"),
     svc: GuestService = Depends(get_service),

@@ -22,16 +22,16 @@ from app.core.database import init_db, close_db, get_client
 # Modelos Beanie (se registran en init_db)
 from app.guests.model import Guest
 from app.users.model import User, Role
+from app.rooms.model import Room
+from app.reservations.model import Reservation
 
 # Routers de cada módulo
 from app.guests.router import router as guests_router
 from app.users.router import router as users_router
 from app.auth.router import router as auth_router
-# Futuro:
-# from app.rooms.model    import Room
-# from app.rooms.router   import router as rooms_router
-# from app.bookings.model import Booking
-# from app.bookings.router import router as bookings_router
+from app.rooms.router import router as rooms_router
+from app.reservations.router import router as reservations_router
+from app.dashboard.router import router as dashboard_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -53,8 +53,8 @@ async def lifespan(app: FastAPI):
     document_models = [
         Guest,
         User,
-        # Room,      ← Paso 3
-        # Booking,   ← Paso 3
+        Room,
+        Reservation,
     ]
     await init_db(document_models)
     
@@ -76,6 +76,10 @@ async def lifespan(app: FastAPI):
         )
         await repo.create(admin_user)
         logger.info("Admin user created (admin / admin123)")
+
+    # ── Seed de Datos de Prueba ────────────────────────────────────────────
+    from app.seed import run_seed
+    await run_seed()
 
     yield
     # ── Shutdown ───────────────────────────────────────────────────────────
@@ -112,9 +116,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(guests_router)
-# Futuro:
-# app.include_router(rooms_router)
-# app.include_router(bookings_router)
+app.include_router(rooms_router)
+app.include_router(reservations_router)
+app.include_router(dashboard_router)
 
 
 
