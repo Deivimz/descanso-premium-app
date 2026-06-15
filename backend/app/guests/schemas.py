@@ -14,6 +14,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from app.shared.validators import is_valid_rut
 
 # Importamos el enum desde el modelo (fuente de verdad del dominio)
 from app.guests.model import DocumentType
@@ -33,14 +34,18 @@ class GuestCreate(BaseModel):
     date_of_birth: Optional[date] = Field(None, examples=["1990-05-15"])
     nationality: Optional[str] = Field(None, max_length=60, examples=["Venezolana"])
     address: Optional[str] = Field(None, max_length=200, examples=["Av. Principal, Caracas"])
-    document_type: DocumentType = Field(..., examples=[DocumentType.DNI])
+    document_type: DocumentType = Field(..., examples=[DocumentType.RUT])
     document_number: str = Field(..., min_length=5, max_length=20, examples=["V-12345678"])
     notes: Optional[str] = Field(None, max_length=500)
 
     @field_validator("document_number")
     @classmethod
-    def normalize_document_number(cls, v: str) -> str:
-        return v.strip().upper()
+    def normalize_document_number(cls, v: str, info) -> str:
+        doc_type = info.data.get("document_type")
+        v = v.strip().upper()
+        if doc_type == DocumentType.RUT and not is_valid_rut(v):
+            raise ValueError("RUT no es válido")
+        return v
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -68,8 +73,17 @@ class GuestUpdate(BaseModel):
 
     @field_validator("document_number")
     @classmethod
-    def normalize_document_number(cls, v: Optional[str]) -> Optional[str]:
-        return v.strip().upper() if v else v
+    def normalize_document_number(cls, v: Optional[str], info) -> Optional[str]:
+        if not v:
+            return v
+        doc_type = info.data.get("document_type")
+        v = v.strip().upper()
+        # En PATCH, si mandan RUT pero no document_type, no validamos Módulo 11
+        # a menos que sepamos que es RUT (se tendría que cruzar con BD, pero info.data solo tiene payload actual).
+        # Hacemos validación condicional.
+        if doc_type == DocumentType.RUT and not is_valid_rut(v):
+            raise ValueError("RUT no es válido")
+        return v
 
     @field_validator("first_name", "last_name")
     @classmethod

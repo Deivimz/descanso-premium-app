@@ -28,10 +28,8 @@ from pymongo import ASCENDING, IndexModel
 # ---------------------------------------------------------------------------
 
 class DocumentType(str, Enum):
-    DNI = "DNI"
+    RUT = "RUT"
     PASAPORTE = "PASAPORTE"
-    RUC = "RUC"
-    CE = "CE"
 
 
 # ---------------------------------------------------------------------------

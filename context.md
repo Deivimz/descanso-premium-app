@@ -250,5 +250,90 @@ curl "http://localhost:8000/api/guests?include_inactive=true"
 
 ---
 
+---
+
+## Pasos 4 y 5 — Autenticación y Módulo de Usuarios (Backend)
+## Pasos 7, 8 y 9 — Frontend: Estado, Rutas y UI Vintage Moderno
+
+**Fecha:** 2026-06-14
+
+### Qué se construyó
+
+| Artefacto | Descripción |
+|---|---|
+| `backend/app/users/` | Módulo completo de Usuarios con Beanie (Model, Repo, Schemas, Router). |
+| `backend/app/core/security.py` | Lógica de hasheo con `passlib` y JWT con `python-jose`. |
+| `backend/app/core/dependencies.py` | `get_current_user` lee el JWT directamente de la cookie. |
+| `backend/app/auth/router.py` | `POST /login` (set_cookie HttpOnly), `POST /logout` y `GET /me`. |
+| `backend/app/main.py` | Se agregó una función de seed para crear el `admin` al inicio. |
+| `frontend/.../vite.config.ts` | Proxy configurado hacia `http://localhost:8000/api`. |
+| `frontend/.../api/axios.ts` | Instancia global de Axios con `withCredentials: true`. |
+| `frontend/.../store/authStore.ts` | Estado global de autenticación con Zustand. |
+| `frontend/.../App.tsx` | Rutas protegidas (`<PrivateRoute>`) implementadas con React Router. |
+| `frontend/.../pages/` | `Login.tsx` (estilo vintage), `Views.tsx` (Placeholders) y `DashboardLayout`. |
+
+### Decisiones Técnicas Clave
+
+1. **Seguridad JWT via Cookies HttpOnly:** Se evitan ataques XSS ya que el JWT no es accesible desde el JavaScript del frontend. Las peticiones enviadas mediante Axios incluyen las cookies automáticamente por `withCredentials: true`.
+2. **Seed de Admin:** Al arrancar la aplicación (`main.py`), si no existe el usuario `admin`, se crea con credenciales por defecto (`admin` / `admin123`) para permitir probar el sistema desde cero.
+3. **Proxy en Vite:** Para solucionar los problemas de CORS y Cookies SameSite en el entorno local (localhost con diferentes puertos), Vite redirige las peticiones `/api` al backend transparente.
+4. **UI Vintage Moderno:** Se incorporaron fuentes tipográficas elegantes (`Playfair Display` para títulos, `Inter` para texto base) con colores terracota/crema para darle una apariencia sofisticada al sistema, cumpliendo el requerimiento estético premium.
+
+### Comandos para ejecutar y probar
+
+```bash
+# Frontend
+npm run dev
+
+# Credenciales por defecto creadas por el seed
+# Usuario: admin
+# Clave: admin123
+```
+
 <!-- Los pasos siguientes se añadirán aquí conforme avancemos -->
 
+---
+
+## Paso 6 — Frontend CRUD: Huéspedes y Usuarios
+
+**Fecha:** 2026-06-14
+
+### Qué se construyó
+
+| Artefacto | Descripción |
+|---|---|
+| `frontend/.../api/guests.ts` | Integración Axios para CRUD de huéspedes. |
+| `frontend/.../api/users.ts` | Integración Axios para CRUD de usuarios. |
+| `frontend/.../components/Modal.tsx` | Componente UI genérico para formularios modales. |
+| `frontend/.../pages/Guests.tsx` | Pantalla de mantenimiento de Huéspedes con validaciones strictas y tabla interactiva. |
+| `frontend/.../pages/Users.tsx` | Pantalla de mantenimiento de Usuarios con control de contraseñas. |
+| `frontend/.../App.tsx` | Rutas actualizadas para incluir `/guests`. |
+| `frontend/.../layouts/DashboardLayout.tsx` | Se añadió "Huéspedes" al menú lateral (Sidebar). |
+
+### Decisiones Técnicas Clave
+
+1. **Modales para Formularios:** Se evitaron las navegaciones a sub-rutas `/new` o `/edit`. En su lugar, se implementaron ventanas modales en la misma página para mantener el flujo de trabajo ágil ("Vintage Moderno").
+2. **Validaciones en React:** Para evitar recargar dependencias pesadas (como Zod o react-hook-form), las validaciones se manejaron directamente en el estado del componente (`validate()`), controlando expresiones regulares, longitudes mínimas y campos obligatorios.
+3. **Soft-Delete Seguro:** En Huéspedes, los elementos inactivos se renderizan con opacidad reducida (`opacity-50`) en lugar de desaparecer por completo, permitiendo auditar la información. En Usuarios, se implementó eliminación física (hard delete) según la definición de la API.
+
+---
+
+## Paso 7 — Validación RUT (Módulo 11) y React-Toastify
+
+**Fecha:** 2026-06-14
+
+### Qué se construyó
+
+| Artefacto | Descripción |
+|---|---|
+| `backend/app/shared/validators.py` | Implementación pura en Python del algoritmo Módulo 11 para validación de RUT Chileno. |
+| `backend/app/users/model.py` | Se añadieron los campos `first_name`, `last_name` y `rut` (índice único) al modelo User. |
+| `frontend/.../utils/validators.ts` | Funciones `validateRut` y `formatRut` en TypeScript. |
+| `frontend/.../App.tsx` | Inclusión del `<ToastContainer />` para el sistema de notificaciones globales. |
+| `frontend/.../pages/Users.tsx` y `Guests.tsx` | Validación del RUT y reemplazo de alertas nativas por `toast.success` y `toast.error`. |
+
+### Decisiones Técnicas Clave
+
+1. **Unificación de Validadores:** Tanto Huéspedes como Usuarios comparten la misma validación estricta de RUT en el Frontend y en el Backend, evitando que datos sucios lleguen a la base de datos.
+2. **Formateo Dinámico UI:** Mientras el usuario teclea un RUT en los formularios de React, `formatRut` interviene para auto-agregar los puntos y el guión separador (`12.345.678-5`), lo que mejora ampliamente la UX (User Experience).
+3. **Notificaciones UI:** Se reemplazó el uso obsoleto de `alert()` o el simple texto estático en rojo, por `react-toastify`, cumpliendo con el estándar de "Vintage Moderno" e interfaces fluidas propuesto al inicio del proyecto.

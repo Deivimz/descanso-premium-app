@@ -40,9 +40,12 @@ class BaseRepository(Generic[T]):
     # CREATE
     # ------------------------------------------------------------------
 
-    async def create(self, data: dict[str, Any]) -> T:
+    async def create(self, data: dict[str, Any] | T) -> T:
         """Crea e inserta un nuevo documento en la colección."""
-        instance = self.model(**data)
+        if isinstance(data, dict):
+            instance = self.model(**data)
+        else:
+            instance = data
         return await instance.insert()
 
     # ------------------------------------------------------------------

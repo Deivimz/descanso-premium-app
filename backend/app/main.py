@@ -21,9 +21,12 @@ from app.core.database import init_db, close_db, get_client
 # ── Módulos ───────────────────────────────────────────────────────────────────
 # Modelos Beanie (se registran en init_db)
 from app.guests.model import Guest
+from app.users.model import User, Role
 
 # Routers de cada módulo
 from app.guests.router import router as guests_router
+from app.users.router import router as users_router
+from app.auth.router import router as auth_router
 # Futuro:
 # from app.rooms.model    import Room
 # from app.rooms.router   import router as rooms_router
@@ -49,10 +52,31 @@ async def lifespan(app: FastAPI):
     # Agregar aquí los modelos Beanie de cada módulo conforme se implementen
     document_models = [
         Guest,
+        User,
         # Room,      ← Paso 3
         # Booking,   ← Paso 3
     ]
     await init_db(document_models)
+    
+    # ── Seed Admin User ────────────────────────────────────────────────────
+    from app.users.repository import UserRepository
+    from app.core.security import get_password_hash
+    repo = UserRepository()
+    admin = await repo.find_by_username("admin")
+    if not admin:
+        admin_user = User(
+            username="admin",
+            email="admin@descansopremium.com",
+            rut="12345678-5",
+            first_name="Admin",
+            last_name="Sistema",
+            hashed_password=get_password_hash("admin123"),
+            role=Role.ADMIN,
+            is_active=True
+        )
+        await repo.create(admin_user)
+        logger.info("Admin user created (admin / admin123)")
+
     yield
     # ── Shutdown ───────────────────────────────────────────────────────────
     await close_db()
@@ -85,6 +109,8 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Routers — cada módulo registra su propio router
 # ---------------------------------------------------------------------------
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(guests_router)
 # Futuro:
 # app.include_router(rooms_router)
