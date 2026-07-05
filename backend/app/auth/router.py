@@ -30,8 +30,8 @@ async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depen
         key="access_token",
         value=access_token,
         httponly=True,
-        samesite="lax",
-        secure=False, # Set to True in production with HTTPS
+        samesite="none",
+        secure=True, # Required for cross-site cookies
         max_age=3600
     )
     
@@ -39,7 +39,7 @@ async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depen
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie(key="access_token", samesite="lax", secure=False)
+    response.delete_cookie(key="access_token", samesite="none", secure=True)
     return {"message": "Logout successful"}
 
 @router.get("/me", response_model=UserResponse)
