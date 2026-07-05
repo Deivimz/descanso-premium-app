@@ -94,9 +94,9 @@ export const Dashboard = () => {
     );
   }
 
-  if (!stats) {
+  if (!stats || !stats.rooms || !stats.guests || !stats.reservations || !stats.revenue) {
     return (
-      <div className="p-8 text-stone-500">No se pudieron cargar las estadísticas.</div>
+      <div className="p-8 text-stone-500">No se pudieron cargar las estadísticas. (Posible error de conexión con el backend)</div>
     );
   }
 
