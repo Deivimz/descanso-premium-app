@@ -30,6 +30,8 @@ from pymongo import ASCENDING, IndexModel
 class DocumentType(str, Enum):
     RUT = "RUT"
     PASAPORTE = "PASAPORTE"
+    DNI = "DNI"
+    
 
 
 # ---------------------------------------------------------------------------
