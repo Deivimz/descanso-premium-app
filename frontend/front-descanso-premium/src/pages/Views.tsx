@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { ReactElement } from 'react';
 import { getDashboardStats } from '../api/dashboard';
 import type { DashboardStats } from '../api/dashboard';
 import {
@@ -22,7 +23,7 @@ const ROOM_TYPE_COLORS: Record<string, string> = {
   Presidencial: 'from-purple-400 to-purple-700',
 };
 
-const ROOM_TYPE_ICONS: Record<string, JSX.Element> = {
+const ROOM_TYPE_ICONS: Record<string, ReactElement> = {
   Simple: <BedSingle size={20} />,
   Doble: <BedDouble size={20} />,
   Suite: <Star size={20} />,
@@ -32,7 +33,7 @@ const ROOM_TYPE_ICONS: Record<string, JSX.Element> = {
 // ── Componentes auxiliares ────────────────────────────────────────────────────
 
 interface StatCardProps {
-  icon: JSX.Element;
+  icon: ReactElement;
   label: string;
   value: string | number;
   sub?: string;
